@@ -1,0 +1,637 @@
+import pygame, soundCode, splashScreen, settingsScreen, HowToPlayScreen, playerSelect, gameScreen, random, math, time
+
+class Screen:
+    def __init__(self):
+        pygame.init()
+        pygame.display.set_caption("Pixel Parkour")
+
+        self.screen_display = pygame.display.set_mode((600, 338))
+        self.running = True
+        self.clock = pygame.time.Clock()
+        self.image_count = 0
+        self.fps = 27
+        self.screen_status = "Start Screen"
+        self.back_button_rect = pygame.Rect(18,285,51,46)
+        self.controls = "WASD"
+        self.music = "On"
+
+        # Initialize objects for each screen
+        self.screens = {
+            "splash": splashScreen.splashDisplay(),
+            "settings": settingsScreen.settingsDisplay(),
+            "how_to_play": HowToPlayScreen.HowToPlayDisplay(),
+            "select_player": playerSelect.playerSelectDisplay(),
+            "game": gameScreen.gameDisplay()
+        }
+
+        # Get screen size and background size
+        self.screen_size = self.screen_display.get_size()
+        self.bg_size = self.screens["game"].bg.get_size()
+        self.bg_x = 0
+        self.rock_x = 600
+        self.temp_timer = 0
+        self.seconds = 0
+        self.minutes = 0
+        self.timer = 0
+        self.font = pygame.font.Font("ThaleahFat.ttf", 60)
+
+
+
+    # Display splash screen
+    def splashScreen(self):
+        if self.image_count >= 100:
+            self.image_count = 0
+        self.screen_display.blit(self.screens["splash"].bg[self.image_count//2], (0,0))
+        self.image_count+=1
+
+        self.screen_display.blit(self.screens["splash"].splashTitle, (0,0))
+        self.screen_display.blit(self.screens["splash"].splashSettings, (0,0))
+        self.screen_display.blit(self.screens["splash"].splashStart, (0,0))
+        self.screen_display.blit(self.screens["splash"].splashHowToPlay, (0,0))
+
+    # Display settings screen
+    def settingsScreen(self):
+        self.screen_display.blit(self.screens["settings"].settingsBackground, (0,0))
+        self.screen_display.blit(self.screens["settings"].playerControls, (0,0))
+        self.screen_display.blit(self.screens["settings"].musicControls, (0,0))
+
+    # Display selected player controls
+        if self.controls == "WASD":
+            self.screen_display.blit(self.screens["settings"].controlsWASD, (0,0))
+        elif self.controls == "Arrows":
+            self.screen_display.blit(self.screens["settings"].controlsArrows, (0,0))
+
+    # Display selected music setting
+        if self.music == "On":
+            self.screen_display.blit(self.screens["settings"].musicOn, (0,0))
+        elif self.music == "Off":
+            self.screen_display.blit(self.screens["settings"].musicOff, (0,0))
+
+    # Display how-to-play screen
+    def howToPlayScreen(self):
+        self.screen_display.blit(self.screens["how_to_play"].HowToPlayBackground, (0,0))
+
+
+    # Display player select screen
+    def playerSelectScreen(self):
+        self.screen_display.blit(self.screens["select_player"].playerSelectBackground, (0,0))
+        #check if warrior rect is clicked, set character to warrior
+
+
+
+
+    # Display game screen
+
+    def gameScreen(self, player):
+        self.fps = 60
+        self.screen_display.blit(self.screens["game"].bg, (self.bg_x, 0))
+        if self.bg_x <= (-1200):
+            self.bg_x = 0
+        #make self.timer increment by 1 every second
+        self.temp_timer += 1
+        if self.temp_timer % 60 == 0 and player.captured == False:
+            self.seconds +=1
+            if self.seconds % 60 == 0:
+                self.minutes +=1
+                self.seconds = 0
+
+        if self.seconds < 10 and self.minutes < 10:
+            self.timer = "0" + str(self.minutes) + ":0" + str(self.seconds)
+        elif self.minutes < 10:
+            self.timer = "0" + str(self.minutes) + ":" + str(self.seconds)
+        elif self.seconds < 10:
+            self.timer = str(self.minutes) + ":0" + str(self.seconds)
+        else:
+            self.timer = str(self.minutes) + ":" + str(self.seconds)
+
+        text = self.font.render(self.timer, True, (99, 98, 94))
+        self.screen_display.blit(text, (230,23))
+
+
+
+
+
+#soundCode.gameSounds.backgroundSound()
+
+
+class Characters:
+    def __init__(self):
+        # Initialize player position
+        self.x_position, self.y_position = 0,0
+
+        # Initialize player state flags
+        self.jumping = False
+        self.walk_right = False
+        self.walk_left = False
+        self.idle = False
+        self.rolling = False
+        self.punching = False
+
+        # Initialize player physics parameters
+        self.y_gravity = 0
+        self.jump_height = 0
+        self.y_velocity = self.jump_height
+        self.x_velocity = 0
+
+        # Initialize player animation counters
+        self.walk_count = 0
+        self.roll_count = 0
+        self.punch_count = 0
+        self.walk_max = 0
+        self.jump_count = 0
+
+
+        self.walk_right_img = None
+        self.walk_left_img = None
+        self.idle_img = None
+        self.rollingR_img = None
+        self.rollingL_img = None
+        self.punchingR_img = None
+        self.punchingL_img = None
+
+        self.height = None
+        self.colliding = False
+
+
+    def movement(self, screen):
+        if self.walk_count + 1 >= self.walk_max:
+            self.walk_count = 0
+
+        if self.roll_count + 1 >= 15:
+            self.roll_count = 0
+
+
+        # Draw player
+        if self.jumping:
+            self.idle = False
+            if self.walk_left:
+                screen.screen_display.blit(self.walk_left_img[self.walk_count//10], (self.x_position,self.y_position))
+                self.y_position -= self.y_velocity
+                self.y_velocity -= self.y_gravity
+                if self.y_velocity < -self.jump_height:
+                    self.jumping = False
+                    self.y_velocity = self.jump_height
+                #screen.player_rect = screen.screens["game"].self.walk_left_img[self.walk_count//10].get_rect(center=(self.x_position, self.y_position))
+
+            else:
+                screen.screen_display.blit(self.walk_right_img[self.walk_count//10], (self.x_position,self.y_position))
+                self.y_position -= self.y_velocity
+                self.y_velocity -= self.y_gravity
+                if self.y_velocity < -self.jump_height:
+                    self.jumping = False
+                    self.y_velocity = self.jump_height
+                #screen.player_rect =screen.screens["game"].self.walk_right_img[self.walk_count//10].get_rect(center=(self.x_position, self.y_position))
+
+
+        if self.jumping == False:
+
+
+            if self.walk_right:
+                if self.punching:
+                    screen.screen_display.blit(self.punchingR_img[self.punch_count//5], (self.x_position,self.y_position))
+                    self.punch_count += 1
+                    if self.punch_count + 1 >= 25:
+                        self.punching = False
+                        self.punch_count = 0
+                elif self.rolling:
+                    screen.screen_display.blit(self.rollingR_img[self.roll_count//5],(self.x_position, self.y_position + 26))
+                    self.roll_count +=1
+                else:
+
+                    screen.screen_display.blit(self.walk_right_img[self.walk_count//10], (self.x_position,self.y_position))
+
+                    self.walk_count += 1
+            elif self.walk_left:
+                if self.punching:
+                    screen.screen_display.blit(self.punchingL_img[self.punch_count//5], (self.x_position,self.y_position))
+                    self.punch_count += 1
+                    if self.punch_count + 1 >= 25:
+                        self.punching = False
+                        self.punch_count = 0
+                elif self.rolling:
+                    screen.screen_display.blit(self.rollingL_img[self.roll_count//5],(self.x_position, self.y_position + 26))
+                    self.roll_count +=1
+                else:
+                    screen.screen_display.blit(self.walk_left_img[self.walk_count//10], (self.x_position,self.y_position))
+                    self.walk_count += 1
+
+            elif self.punching:
+                self.idle = False
+                screen.screen_display.blit(self.punchingR_img[self.punch_count//5], (self.x_position,self.y_position))
+                self.punch_count += 1
+                if self.punch_count + 1 >= 25:
+                    self.punching = False
+                    self.punch_count = 0
+
+        if self.idle == True:
+            screen.screen_display.blit(self.idle_img, (self.x_position,self.y_position))
+
+
+
+class Player(Characters):
+    def __init__(self, character):
+        super().__init__()
+        # Initialize player position
+        self.x_position, self.y_position = 50,250
+
+
+        # Initialize player physics parameters
+        self.y_gravity = 0.5
+        self.jump_height = 10
+        self.y_velocity = self.jump_height
+        self.x_velocity = 3
+        self.walk_max = 60
+
+        self.height = 75
+        self.width = 37
+
+        self.captured = False
+        self.capture_count = 0
+
+        if character == "Warrior":
+            self.idle_img = pygame.image.load("Images/Game/warrior_idle.png")
+            self.walk_right_img = [pygame.image.load("Images/Game/warrior_r1.png"), pygame.image.load("Images/Game/warrior_r2.png"), pygame.image.load("Images/Game/warrior_r3.png"), pygame.image.load("Images/Game/warrior_r4.png"), pygame.image.load("Images/Game/warrior_r5.png"), pygame.image.load("Images/Game/warrior_r6.png")]
+            self.walk_left_img = [pygame.image.load("Images/Game/warrior_l1.png"), pygame.image.load("Images/Game/warrior_l2.png"), pygame.image.load("Images/Game/warrior_l3.png"), pygame.image.load("Images/Game/warrior_l4.png"), pygame.image.load("Images/Game/warrior_l5.png"), pygame.image.load("Images/Game/warrior_l6.png")]
+            self.rollingR_img = [pygame.image.load("Images/Game/warrior_fr1.png"), pygame.image.load("Images/Game/warrior_fr2.png"), pygame.image.load("Images/Game/warrior_fr3.png")]
+            self.rollingL_img = [pygame.image.load("Images/Game/warrior_lr1.png"), pygame.image.load("Images/Game/warrior_lr2.png"), pygame.image.load("Images/Game/warrior_lr3.png")]
+            self.punchingR_img = [pygame.image.load("Images/Game/warrior_pr1.png"), pygame.image.load("Images/Game/warrior_pr2.png"), pygame.image.load("Images/Game/warrior_pr3.png"), pygame.image.load("Images/Game/warrior_pr2.png"), pygame.image.load("Images/Game/warrior_pr1.png")]
+            self.punchingL_img = [pygame.image.load("Images/Game/warrior_pl1.png"), pygame.image.load("Images/Game/warrior_pl2.png"), pygame.image.load("Images/Game/warrior_pl3.png"), pygame.image.load("Images/Game/warrior_pl2.png"), pygame.image.load("Images/Game/warrior_pl1.png")]
+        elif character == "Wrestler":
+            self.idle_img = pygame.image.load("Images/Game/wrestler_idle.png")
+            self.walk_right_img = [pygame.image.load("Images/Game/wrestler_r1.png"), pygame.image.load("Images/Game/wrestler_r2.png"), pygame.image.load("Images/Game/wrestler_r3.png"), pygame.image.load("Images/Game/wrestler_r4.png"), pygame.image.load("Images/Game/wrestler_r5.png"), pygame.image.load("Images/Game/wrestler_r6.png")]
+            self.walk_left_img = [pygame.image.load("Images/Game/wrestler_l1.png"), pygame.image.load("Images/Game/wrestler_l2.png"), pygame.image.load("Images/Game/wrestler_l3.png"), pygame.image.load("Images/Game/wrestler_l4.png"), pygame.image.load("Images/Game/wrestler_l5.png"), pygame.image.load("Images/Game/wrestler_l6.png")]
+            self.rollingR_img = [pygame.image.load("Images/Game/wrestler_fr1.png"), pygame.image.load("Images/Game/wrestler_fr2.png"), pygame.image.load("Images/Game/wrestler_fr3.png")]
+            self.rollingL_img = [pygame.image.load("Images/Game/wrestler_lr1.png"), pygame.image.load("Images/Game/wrestler_lr2.png"), pygame.image.load("Images/Game/wrestler_lr3.png")]
+            self.punchingR_img = [pygame.image.load("Images/Game/wrestler_pr1.png"), pygame.image.load("Images/Game/wrestler_pr2.png"), pygame.image.load("Images/Game/wrestler_pr3.png"), pygame.image.load("Images/Game/wrestler_pr2.png"), pygame.image.load("Images/Game/wrestler_pr1.png")]
+            self.punchingL_img = [pygame.image.load("Images/Game/wrestler_pl1.png"), pygame.image.load("Images/Game/wrestler_pl2.png"), pygame.image.load("Images/Game/wrestler_pl3.png"), pygame.image.load("Images/Game/wrestler_pl2.png"), pygame.image.load("Images/Game/wrestler_pl1.png")]
+
+
+class Morde(Characters):
+    def __init__(self):
+        super().__init__()
+        self.x_position, self.y_position = -73, 225
+
+        self.y_gravity = 0.5
+        self.jump_height = 10
+        self.y_velocity = self.jump_height
+        self.x_velocity = 0.5
+        self.fallback = 0.2
+        self.walk_max = 50
+        self.spawned = False
+        self.jump_wait = 0
+        self.jump_count = 0
+        self.obstacle_summoned = False
+        self.height = 95
+        self.width = 120
+
+        #self.idle_img = pygame.image.load("Images/Game/morde_idle.png")
+        self.walk_right_img = [pygame.image.load("Images/Game/morde_r1.png"), pygame.image.load("Images/Game/morde_r2.png"), pygame.image.load("Images/Game/morde_r3.png"), pygame.image.load("Images/Game/morde_r2.png"), pygame.image.load("Images/Game/morde_r1.png"), pygame.image.load("Images/Game/morde_r4.png")]
+        self.walk_left_img = [pygame.image.load("Images/Game/morde_l1.png"), pygame.image.load("Images/Game/morde_l2.png"), pygame.image.load("Images/Game/morde_l3.png"), pygame.image.load("Images/Game/morde_l2.png"), pygame.image.load("Images/Game/morde_l1.png"), pygame.image.load("Images/Game/morde_l4.png")]
+        self.capturing_img = [pygame.image.load("Images/Game/morde_capturing.png"), pygame.image.load("Images/Game/morde_capturing2.png")]
+
+
+    def chasing(self,screen,player,rock, grunt, grunt2, grunt3):
+        self.movement(screen)
+
+        if player.x_position > 250  and self.spawned == False:
+            self.spawned = True
+            if self.x_position <= 50:
+                self.x_position += self.x_velocity
+                self.walk_right = True
+
+        if player.jumping == True and player.x_position - self.x_position <= 200:
+            if self.jump_wait < 35 and self.jumping == False:
+                self.jump_wait += 1
+            else:
+                self.jumping = True
+                self.jump_wait = 0
+
+        if player.x_position <= 250 or player.idle == True:
+            if (self.x_position + self.width) - 25 <= player.x_position:
+                self.x_position += self.x_velocity
+                self.walk_right = True
+                self.walk_left = False
+            else:
+                self.capture(screen,player)
+
+        elif player.x_position > 250 and self.x_position > 50:
+            self.x_position -= self.fallback
+
+        if grunt.spawned == True:
+            grunt.spawnGrunt(screen, player)
+            grunt2.spawnGrunt(screen, player)
+            grunt3.spawnGrunt(screen, player)
+        elif rock.spawned == True:
+            rock.spawnRock(screen, player)
+        elif self.y_position == 120:
+            if self.obstacle_summoned == False:
+                if random.randint(1, 1) == 0:
+                    self.summonRock(rock, screen, player)
+                else:
+                    self.summonGrunts(screen, player, grunt, grunt2, grunt3)
+                self.obstacle_summoned = True
+        else:
+            rock.spawned = False
+            grunt.spawned = False
+            self.obstacle_summoned = False
+
+    def summonGrunts(self, screen, player, grunt, grunt2, grunt3):
+        chance = 10 + min(90, (5*player.jump_count))
+        if grunt.spawned == False:
+            self.summon_obstacle = random.randint(0,100)
+        if self.summon_obstacle < chance or grunt.spawned == True:
+            grunt.spawnGrunt(screen, player)
+            grunt2.spawnGrunt(screen, player)
+            grunt3.spawnGrunt(screen, player)
+            player.jump_count = 0
+        else:
+            player.jump_count += 1
+
+    def summonRock(self, rock, screen,player):
+        chance = 10 + min(90, (5*player.jump_count))
+        """The min function is used to ensure that the maximum value of chance is 90. This means that if the player's jump_count exceeds 90, the value of chance will still only be 90. The initial chance value is 10, but it increases by 1 for each jump made by the player. The result is that the more the player jumps, the higher the likelihood of a rock obstacle being spawned."""
+
+        if rock.spawned == False:
+            # Increase the chance of spawning a rock as the player jumps more
+            self.summon_obstacle = random.randint(0,100)
+        if self.summon_obstacle < chance or rock.spawned == True:
+            rock.x_position = 600
+            rock.spawnRock(screen,player)
+            player.jump_count = 0
+        else:
+            player.jump_count += 1
+
+    def capture(self, screen, player):
+        player.captured = True
+        self.walk_right = False
+        player.capture_count += 1
+        #display captured image 1 for 1 second then 2 for 1 second
+        if player.capture_count < 20:
+            screen.screen_display.blit(self.capturing_img[0], (self.x_position, self.y_position - 20))
+        else:
+            screen.screen_display.blit(self.capturing_img[1], (self.x_position + 40, self.y_position))
+
+
+
+class Obstacles:
+    def __init__(self):
+        self.x_position, self.y_position = 0,0
+        self.obstacle_image= None
+        self.spawned = False
+        self.abs_width = 60
+
+    def collide(self, player):
+
+        x_distance = (player.x_position - (self.x_position+self.collide_point)) ** 2
+        y_distance = (player.y_position - self.y_position)**2
+
+
+        collisionPoint = math.sqrt(x_distance + y_distance)
+        print(self.abs_width)
+        if collisionPoint < self.abs_width:
+            player.colliding = True
+        else:
+            player.colliding = False
+
+
+class Grunt(Characters, Obstacles):
+    def __init__(self, grunt_number):
+        super().__init__()
+        self.x_position, self.y_position = (560+ 80*grunt_number), 235
+        self.x_velocity = 0.5
+        self.walk_max = 60
+        self.collide_point = 0
+        self.abs_width = 30
+        self.height = 330
+        self.spawned = False
+        self.number = grunt_number
+
+        self.walk_left_img = [pygame.image.load("Images/Game/grunt_l1.png"), pygame.image.load("Images/Game/grunt_l2.png"), pygame.image.load("Images/Game/grunt_l3.png"),  pygame.image.load("Images/Game/grunt_l4.png"), pygame.image.load("Images/Game/grunt_l5.png"), pygame.image.load("Images/Game/grunt_l6.png")]
+
+    def spawnGrunt(self, screen, player):
+
+        self.spawned = True
+        self.collide(player)
+
+        self.movement(screen)
+        self.x_position -= self.x_velocity
+        self.walk_left = True
+
+        if self.x_position < -120:
+            self.x_position = 600
+            self.spawned = False
+
+
+    def collide(self, player):
+        super().collide(player)
+        if player.colliding == True:
+            print("collided" + str(self.number))
+            player.x_position -= self.x_velocity
+
+
+
+
+class Rock(Obstacles):
+    def __init__(self):
+        super().__init__()
+        self.obstacle_image = pygame.image.load("Images/Game/rock.png")
+        self.x_position, self.y_position = 600, 250
+        self.height = 83
+        self.width = 99
+        self.collide_point = self.width*0.3
+        self.abs_width = 60
+
+    def spawnRock(self, screen, player):
+        self.spawned = True
+        self.collide(player)
+        screen.screen_display.blit(self.obstacle_image, (self.x_position, self.y_position))
+        if self.x_position < -100:
+            self.x_position = 600
+            self.spawned = False
+
+    def collide(self, player):
+        super().collide(player)
+        if player.colliding == True:
+            if player.x_position <= (self.x_position+self.collide_point) and player.y_position != 250:
+                player.x_position -= 5
+            elif player.x_position > (self.x_position+self.collide_point):
+                player.x_position += 5
+
+
+
+def mainGame():
+    screen = Screen()
+
+    while screen.running == True:
+        screen.clock.tick(screen.fps)
+        for screen.event in pygame.event.get():
+            if screen.event.type == pygame.QUIT:
+                screen.running = False
+
+            if screen.event.type == pygame.MOUSEBUTTONDOWN:
+                if screen.screen_status == "Start Screen":
+                    start_buttons = {
+                        "start": pygame.Rect(191,157,218,23),
+                        "settings": pygame.Rect(246,195,107,15),
+                        "how_to_play": pygame.Rect(228,227,144,15)
+                    }
+
+                    if start_buttons["start"].collidepoint(screen.event.pos):
+                        screen.screen_status = "Player Select"
+                    elif start_buttons["settings"].collidepoint(screen.event.pos):
+                        screen.screen_status = "Settings Screen"
+                    elif start_buttons["how_to_play"].collidepoint(screen.event.pos):
+                        screen.screen_status = "How To Play Screen"
+
+                elif screen.screen_status == "Settings Screen":
+                    settings_buttons = {
+                        "playerControlsR": pygame.Rect(483,95,40,40),
+                        "playerControlsL": pygame.Rect(288,96,40,40),
+                        "musicControlsR": pygame.Rect(288.5,157.5,40,40),
+                        "musicControlsL": pygame.Rect(481.5,155.5,40,40)
+                    }
+
+                    if settings_buttons["playerControlsR"].collidepoint(screen.event.pos) and screen.controls == "WASD" or settings_buttons["playerControlsL"].collidepoint(screen.event.pos) and screen.controls == "WASD":
+                        screen.controls = "Arrows"
+                    elif settings_buttons["playerControlsR"].collidepoint(screen.event.pos) and screen.controls == "Arrows" or settings_buttons["playerControlsL"].collidepoint(screen.event.pos) and screen.controls == "Arrows":
+                        screen.controls = "WASD"
+                    elif settings_buttons["musicControlsR"].collidepoint(screen.event.pos) and screen.music == "On" or settings_buttons["musicControlsL"].collidepoint(screen.event.pos) and screen.music == "On":
+                        screen.music = "Off"
+                    elif settings_buttons["musicControlsL"].collidepoint(screen.event.pos) and screen.music == "Off" or settings_buttons["musicControlsR"].collidepoint(screen.event.pos) and screen.music == "Off":
+                        screen.music = "On"
+
+                elif screen.screen_status == "Player Select":
+                    player_buttons = {
+                        "warrior": pygame.Rect(104,101,153,200),
+                        "wrestler": pygame.Rect(344,101,153,200)
+                    }
+
+                    if player_buttons["warrior"].collidepoint(screen.event.pos):
+                        character = "Warrior"
+                        screen.screen_status = "Game"
+                        player = Player(character)
+                        morde = Morde()
+                        rock = Rock()
+                        grunt = Grunt(1)
+                        grunt2 = Grunt(2)
+                        grunt3 = Grunt(3)
+
+                    elif player_buttons["wrestler"].collidepoint(screen.event.pos):
+                        character = "Wrestler"
+                        screen.screen_status = "Game"
+                        player = Player(character)
+                        morde = Morde()
+                        rock = Rock()
+                        grunt = Grunt(1)
+                        grunt2 = Grunt(2)
+                        grunt3 = Grunt(3)
+
+
+
+                if screen.back_button_rect.collidepoint(screen.event.pos):
+                    screen.screen_status = "Start Screen"
+
+
+        if screen.screen_status == "Start Screen":
+            screen.splashScreen()
+        elif screen.screen_status == "How To Play Screen":
+            screen.howToPlayScreen()
+        elif screen.screen_status == "Settings Screen":
+            screen.settingsScreen()
+        elif screen.screen_status == "Player Select":
+            screen.playerSelectScreen()
+        elif screen.screen_status == "Game":
+            screen.gameScreen(player)
+
+
+
+            if screen.controls == "WASD":
+                index_controls = 0
+            else:
+                index_controls = 1
+            for screen.event in pygame.event.get():
+                if screen.event.type == pygame.QUIT:
+                    screen.running = False
+            else:
+                keys = pygame.key.get_pressed()
+                control_keys = [[pygame.K_d, pygame.K_RIGHT], [pygame.K_a, pygame.K_LEFT], [pygame.K_w, pygame.K_UP], [pygame.K_s, pygame.K_DOWN], [pygame.K_p, pygame.K_q]]
+                player.movement(screen)
+                morde.chasing(screen, player, rock, grunt, grunt2, grunt3)
+
+                if player.captured == False:
+                    if keys[pygame.K_ESCAPE]:
+                        screen.screen_status = "Start Screen"
+                    if keys[control_keys[2][index_controls]]:
+                        player.jumping = True
+                        player.idle = False
+                        player.punching = False
+                        player.rolling = False
+
+                        if player.y_position == 240:
+                            player.jump_count += 1
+                            print(player.jump_count)
+
+
+                    elif keys[control_keys[3][index_controls]]:
+                        player.rolling = True
+                        player.idle = False
+                        player.punching = False
+                    elif keys[control_keys[4][index_controls]]:
+                        player.punching = True
+                        player.rolling = False
+                        player.idle = False
+
+                        if player.colliding == True and grunt.spawned == True:
+                            grunt.spawned = False
+                            grunt.x_position = 600
+                            player.colliding = False
+                        """elif player.colliding == True and grunt2.spawned == True:
+                            grunt2.spawned = False
+                            grunt2.x_position = 640
+                            player.colliding = False
+                        elif player.colliding == True and grunt3.spawned == True:
+                            grunt3.spawned = False
+                            grunt3.x_position = 680
+                            player.colliding = False"""
+
+                    if keys[control_keys[0][index_controls]]:
+                        player.walk_right = True
+                        if player.colliding == False:
+                            if player.x_position > 250:
+                                #grunt1.x_velocity = 1
+                                grunt.x_velocity, grunt2.x_velocity, grunt3.x_velocity = 1, 1, 1
+                                screen.bg_x -= 5
+                                rock.x_position -= 5
+                            else:
+                                #grunt1.x_velocity = 0.5
+                                grunt.x_velocity, grunt2.x_velocity, grunt3.x_velocity = 0.5, 0.5, 0.5
+                                player.x_position += player.x_velocity
+                            player.walk_left = False
+                            player.idle = False
+                        player.idle = False
+
+
+
+                    elif keys[control_keys[1][index_controls]]:
+
+                        player.walk_left = True
+                        player.walk_right = False
+                        player.idle = False
+                        if player.x_position >= -0:
+                            player.x_position -= player.x_velocity
+
+                    else:
+                        #grunt1.x_velocity = 0.5
+                        grunt.x_velocity, #grunt2.x_velocity, #grunt3.x_velocity = 0.5, 0.5, 0.5
+                        player.walk_right = False
+                        player.walk_left = False
+                        player.rolling = False
+                        player.idle = True
+
+        pygame.display.update()
+
+    pygame.quit()
+mainGame()
+
+
+
